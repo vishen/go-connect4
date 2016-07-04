@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -14,12 +15,61 @@ const (
 )
 
 type Game struct {
-	board   [BOARD_WIDTH][BOARD_HEIGHT]int
-	heights [BOARD_WIDTH]int
-	player  string
+	board       [BOARD_WIDTH][BOARD_HEIGHT]int
+	heights     [BOARD_WIDTH]int
+	player      string
+	player_code int
 
 	last_move_x int
 	last_move_y int
+
+	/*
+		0 0000 0000 00000 00000 0000 0000 0000 0000 0000 0000
+	*/
+	last_turn     uint64
+	turn_sequence []uint64
+
+	previous_games [][]uint64
+}
+
+func (g Game) GetPiece() int {
+	if g.player == "X" {
+		g.player_code = 1
+	} else {
+		g.player_code = 2
+	}
+
+	return g.player_code
+}
+
+func (g Game) DumpGame() {
+	previous_games := g.previous_games
+	previous_games = append(previous_games, g.turn_sequence)
+
+	winner := 0
+	if g.last_turn < 2**(BOARD_HEIGHT * BOARD_WIDTH) {
+		winner = g.player_code
+	} else {
+		fmt.Println("DRAW")
+	}
+
+}
+
+func (g *Game) GenerateLastTurn() {
+	var turn uint64 = 1
+
+	normalized_y := BOARD_HEIGHT - g.last_move_y - 1
+	normalized_x := BOARD_WIDTH - g.last_move_x - 1
+
+	g.last_turn |= (turn << (uint64)((normalized_y*BOARD_WIDTH)+normalized_x))
+	fmt.Printf("LAST TURN: %b\n", g.last_turn)
+
+	if len(g.turn_sequence) > 0 {
+		fmt.Printf("LAST TURN DIFF: %b\n", g.last_turn^g.turn_sequence[len(g.turn_sequence)-1])
+	}
+
+	g.turn_sequence = append(g.turn_sequence, g.last_turn)
+
 }
 
 func (g Game) String() string {
@@ -58,14 +108,7 @@ func add_to_board(turn int) bool {
 
 	height := BOARD_HEIGHT - 1 - game.heights[turn]
 
-	var piece int
-	if game.player == "X" {
-		piece = 1
-	} else {
-		piece = 2
-	}
-
-	game.board[turn][height] = piece
+	game.board[turn][height] = game.GetPiece()
 	game.last_move_x = turn
 	game.last_move_y = height
 
@@ -265,6 +308,8 @@ func main() {
 		} else {
 			game.player = "X"
 		}
+
+		game.GenerateLastTurn()
 
 	}
 
