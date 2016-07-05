@@ -32,6 +32,8 @@ import (
 	"encoding/binary"
 	"log"
 
+	"math"
+
 	"golang.org/x/mobile/app"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/paint"
@@ -51,6 +53,8 @@ var (
 	offset   gl.Uniform
 	color    gl.Uniform
 	buf      gl.Buffer
+	buf2     gl.Buffer
+	buf3     gl.Buffer
 
 	green  float32
 	touchX float32
@@ -108,7 +112,13 @@ func onStart(glctx gl.Context) {
 
 	buf = glctx.CreateBuffer()
 	glctx.BindBuffer(gl.ARRAY_BUFFER, buf)
-	glctx.BufferData(gl.ARRAY_BUFFER, triangleData, gl.STATIC_DRAW)
+	glctx.BufferData(gl.ARRAY_BUFFER, line_vertical, gl.STATIC_DRAW)
+
+	buf2 = glctx.CreateBuffer()
+	glctx.BindBuffer(gl.ARRAY_BUFFER, buf2)
+	glctx.BufferData(gl.ARRAY_BUFFER, line_horizontal, gl.STATIC_DRAW)
+
+	buf3 = glctx.CreateBuffer()
 
 	position = glctx.GetAttribLocation(program, "position")
 	color = glctx.GetUniformLocation(program, "color")
@@ -126,7 +136,10 @@ func onStop(glctx gl.Context) {
 }
 
 func onPaint(glctx gl.Context, sz size.Event) {
-	glctx.ClearColor(1, 0, 0, 1)
+
+	log.Println("click coords: ", touchX, touchY)
+
+	glctx.ClearColor(0, 0, 0, 0)
 	glctx.Clear(gl.COLOR_BUFFER_BIT)
 
 	glctx.UseProgram(program)
@@ -135,11 +148,7 @@ func onPaint(glctx gl.Context, sz size.Event) {
 	var size_x float32 = 0.25
 
 	for i := 0; i < 7; i++ {
-		green += 0.01
-		if green > 1 {
-			green = 0
-		}
-		glctx.Uniform4f(color, 0, green, 0, 1)
+		glctx.Uniform4f(color, 0, 1, 0, 1)
 
 		glctx.Uniform2f(offset, current_x, 0)
 		current_x += size_x
@@ -154,12 +163,94 @@ func onPaint(glctx gl.Context, sz size.Event) {
 		glctx.DisableVertexAttribArray(position)
 	}
 
+	var current_y float32 = -0.7
+	var size_y float32 = 0.25
+
+	for i := 0; i < 7; i++ {
+		glctx.Uniform4f(color, 0, 1, 0, 1)
+
+		glctx.Uniform2f(offset, 0, current_y)
+		current_y += size_y
+		// glctx.Uniform2f(offset, 0.2+(0.2*float32(i)), 0)
+		// glctx.Uniform2f(offset, touchX/float32(sz.WidthPx), touchY/float32(sz.HeightPx))
+		// log.Println(touchX/float32(sz.WidthPx), touchY/float32(sz.HeightPx))
+
+		glctx.BindBuffer(gl.ARRAY_BUFFER, buf2)
+		glctx.EnableVertexAttribArray(position)
+		glctx.VertexAttribPointer(position, coordsPerVertex, gl.FLOAT, false, 0, 0)
+		glctx.DrawArrays(gl.LINES, 0, vertexCount)
+		glctx.DisableVertexAttribArray(position)
+	}
+
+	{
+		// Draw circle
+		vertex_count := 30
+
+		var radius float32 = 0.08
+		var center_x float32 = 0.0
+		var center_y float32 = 0.0
+
+		buffer := make([]float32, vertex_count*2)
+		idx := 0
+
+		buffer[idx] = center_x
+		idx += 1
+		buffer[idx] = center_y
+		idx += 1
+
+		outerVertexCount := vertex_count - 1
+
+		for i := 1; i < outerVertexCount; i++ {
+			var percent float64 = (float64(i) / float64(outerVertexCount-1))
+			var rad float64 = percent * (2 * math.Pi)
+
+			var outer_x float32 = center_x + (radius * float32(math.Cos(rad)))
+			var outer_y float32 = center_y + (radius * float32(math.Sin(rad)))
+
+			buffer[idx] = outer_x
+			idx += 1
+			buffer[idx] = outer_y
+			idx += 1
+
+		}
+
+		// var radius float64 = 30
+		// var sides int = 60
+
+		// buffer := []float32{}
+
+		// for i := 0.0; i < 2*math.Pi; i += (2 * math.Pi / float64(sides)) {
+		// 	buffer = append(buffer, float32(math.Sin(i)*radius))
+		// 	buffer = append(buffer, float32(math.Cos(i)*radius))
+		// }
+
+		glctx.Uniform4f(color, 0, 0, 1, 1)
+		// glctx.Uniform2f(offset, 0, 0)
+
+		x_offset := 2.0*(touchX/float32(sz.WidthPx)) - 1.0
+		y_offset := 1.0 - 2.0*(touchY/float32(sz.HeightPx))
+		glctx.Uniform2f(offset, x_offset, y_offset)
+
+		glctx.BindBuffer(gl.ARRAY_BUFFER, buf3)
+		glctx.BufferData(gl.ARRAY_BUFFER, f32.Bytes(binary.LittleEndian, buffer...), gl.STATIC_DRAW)
+
+		glctx.EnableVertexAttribArray(position)
+		glctx.VertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
+		glctx.DrawArrays(gl.LINE_LOOP, 2, outerVertexCount)
+		glctx.DisableVertexAttribArray(position)
+	}
+
 	fps.Draw(sz)
 }
 
-var triangleData = f32.Bytes(binary.LittleEndian,
+var line_vertical = f32.Bytes(binary.LittleEndian,
 	0.0, 1.0, 0.0, // top left
 	0.0, -1.0, 0.0, // bottom left
+)
+
+var line_horizontal = f32.Bytes(binary.LittleEndian,
+	-1.0, 0.0, 0.0, // top left
+	1.0, 0.0, 0.0, // bottom left
 )
 
 const (
@@ -173,8 +264,6 @@ uniform vec2 offset;
 attribute vec4 position;
 void main() {
 	// offset comes in with x/y values between 0 and 1.
-	// position bounds are -1 to 1.
-	// vec4 offset4 = vec4(2.0*offset.x-1.0, 1.0-2.0*offset.y, 0, 0);
 	vec4 offset4 = vec4(offset.x, offset.y, 0, 0);
 	gl_Position = position + offset4;
 }`
