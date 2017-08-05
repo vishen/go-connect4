@@ -22,6 +22,8 @@ type Game struct {
 	// Store the turns in encoded format
 	encodedBoard uint64
 	encodedTurns []uint64
+
+	debug bool
 }
 
 func (g *Game) GetCurrentPlayer() string {
@@ -92,6 +94,7 @@ func (g *Game) CompleteTurn(turn int) bool {
 
 		g.encodedBoard |= encodedTurn
 		g.encodedTurns = append(g.encodedTurns, g.encodedBoard)
+
 	}
 
 	// Add the turn for the player to the board
