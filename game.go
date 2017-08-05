@@ -17,8 +17,6 @@ type Game struct {
 	// (0,0) is top left, (5,6) is bottom right # (height, width)
 	board          [BOARD_HEIGHT][BOARD_WIDTH]int
 	currentHeights [BOARD_WIDTH]int
-	lastMoveX      int
-	lastMoveY      int
 	wonBy          int // Indicates how the game was won
 
 	// Store the turns in encoded format
@@ -48,7 +46,6 @@ func (g *Game) DrawBoard() {
 
 			if turn == 0 {
 				buffer.WriteRune('-')
-				// buffer.WriteString(fmt.Sprintf("%d:%d", i, j))
 			} else {
 				buffer.WriteRune(g.getPlayerPretty(turn))
 			}
@@ -81,11 +78,12 @@ func (g *Game) CheckIfValidTurn(turn int) bool {
 func (g *Game) CompleteTurn(turn int) bool {
 	// Returns 'true' if the turn was a winning turn...?
 
-	// Add the turn for the player to the board
+	// Get the current height of the turn played
 	height := BOARD_HEIGHT - 1 - g.currentHeights[turn]
 
 	win := g.CheckForWin(height, turn)
 
+	// Add the turn for the player to the board
 	g.board[height][turn] = g.currentPlayer
 	g.currentHeights[turn] += 1
 
@@ -134,43 +132,24 @@ func (g *Game) CheckForWin(y, x int) bool {
 
 	winCount := 4
 
-	// Check horizontal
-	{
-
-		consecutive := 1
-
-		var direction int
-		for i := 0; i < 2; i++ {
-
-			if i == 0 {
-				direction = 1
-			} else {
-				direction = -1
-			}
-
-			for j := 1; j <= winCount; j++ {
-				ny := lmy
-				nx := lmx + (j * direction)
-
-				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
-					break
-				}
-
-				if g.board[ny][nx] != g.currentPlayer {
-					break
-				}
-
-				consecutive++
-				if consecutive >= winCount {
-					g.wonBy = 1
-					return true
-				}
-			}
-		}
+	// This works, but looks kind of ugly? But can't think of simplier solution at the moment
+	type getXY func(x, y, direction, currentIteration int) (int, int)
+	winningWays := map[int]getXY{
+		1: func(x, y, d, i int) (int, int) { // horizontal
+			return x + (i * d), y
+		},
+		2: func(x, y, d, i int) (int, int) { // vertical
+			return x, y + (i * d)
+		},
+		3: func(x, y, d, i int) (int, int) { // left-top-to-right-bottom diagonal
+			return x + (i * d), y + (i * d)
+		},
+		4: func(x, y, d, i int) (int, int) { // right-top-to-left-bottom diagonal
+			return x - (i * d), y + (i * d)
+		},
 	}
 
-	// Check vertical
-	{
+	for winCode, f := range winningWays {
 
 		consecutive := 1
 
@@ -184,8 +163,8 @@ func (g *Game) CheckForWin(y, x int) bool {
 			}
 
 			for j := 1; j <= winCount; j++ {
-				ny := lmy + (j * direction)
-				nx := lmx
+
+				nx, ny := f(x, y, direction, j)
 
 				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
 					break
@@ -197,83 +176,7 @@ func (g *Game) CheckForWin(y, x int) bool {
 
 				consecutive++
 				if consecutive >= winCount {
-					g.wonBy = 2
-					return true
-				}
-			}
-		}
-	}
-
-	// Check left-top-to-right-bottom diagonal
-	{
-
-		// x is always getting bigger
-		// y is always getting bigger
-
-		consecutive := 1
-
-		var direction int
-		for i := 0; i < 2; i++ {
-
-			if i == 0 {
-				direction = 1
-			} else {
-				direction = -1
-			}
-
-			for j := 1; j <= winCount; j++ {
-				ny := lmy + (j * direction)
-				nx := lmx + (j * direction)
-
-				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
-					break
-				}
-
-				if g.board[ny][nx] != g.currentPlayer {
-					break
-				}
-
-				consecutive++
-				if consecutive >= winCount {
-					g.wonBy = 3
-					return true
-				}
-			}
-		}
-	}
-
-	// Check right-top-to-left-bottom diagonal
-	{
-
-		// x is always getting bigger
-		// y is always getting smaller
-
-		consecutive := 1
-
-		var direction int
-		for i := 0; i < 2; i++ {
-
-			if i == 0 {
-				direction = 1
-			} else {
-				direction = -1
-			}
-
-			for j := 1; j <= winCount; j++ {
-				ny := lmy + (j * direction)
-				nx := lmx - (j * direction)
-
-				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
-					break
-				}
-
-				if g.board[ny][nx] != g.currentPlayer {
-					break
-				}
-
-				consecutive++
-				if consecutive >= winCount {
-					g.wonBy = 4
+					g.wonBy = winCode
 					return true
 				}
 			}
@@ -281,4 +184,5 @@ func (g *Game) CheckForWin(y, x int) bool {
 	}
 
 	return false
+
 }
