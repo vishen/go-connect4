@@ -34,9 +34,9 @@ func main() {
 			continue
 		}
 
-		game.AddNewTurn(move)
-		if game.CheckForWin(move) {
-			fmt.Printf("> Yay! '%s' won\n", game.GetCurrentPlayer())
+		if game.CompleteTurn(move) {
+			game.DrawBoard()
+			fmt.Printf("> Yay! '%s' won '%s' \n", game.GetCurrentPlayer(), game.WonBy())
 			break
 		}
 	}

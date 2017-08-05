@@ -13,11 +13,13 @@ const (
 type Game struct {
 	currentPlayer int
 
-	// Used for keeping track of the current g
-	board          [BOARD_WIDTH][BOARD_HEIGHT]int
+	// Used for keeping track of the current game
+	// (0,0) is top left, (5,6) is bottom right # (height, width)
+	board          [BOARD_HEIGHT][BOARD_WIDTH]int
 	currentHeights [BOARD_WIDTH]int
 	lastMoveX      int
 	lastMoveY      int
+	wonBy          int // Indicates how the game was won
 
 	// Store the turns in encoded format
 	encodedBoard uint64
@@ -42,10 +44,11 @@ func (g *Game) DrawBoard() {
 
 	for i := 0; i < BOARD_HEIGHT; i++ {
 		for j := 0; j < BOARD_WIDTH; j++ {
-			turn := g.board[j][i]
+			turn := g.board[i][j]
 
 			if turn == 0 {
 				buffer.WriteRune('-')
+				// buffer.WriteString(fmt.Sprintf("%d:%d", i, j))
 			} else {
 				buffer.WriteRune(g.getPlayerPretty(turn))
 			}
@@ -75,15 +78,16 @@ func (g *Game) CheckIfValidTurn(turn int) bool {
 
 }
 
-func (g *Game) AddNewTurn(turn int) {
+func (g *Game) CompleteTurn(turn int) bool {
+	// Returns 'true' if the turn was a winning turn...?
 
 	// Add the turn for the player to the board
 	height := BOARD_HEIGHT - 1 - g.currentHeights[turn]
-	g.board[turn][height] = g.currentPlayer
-	g.currentHeights[turn] += 1
 
-	g.lastMoveX = turn
-	g.lastMoveY = height
+	win := g.CheckForWin(height, turn)
+
+	g.board[height][turn] = g.currentPlayer
+	g.currentHeights[turn] += 1
 
 	// Switch player
 	if g.currentPlayer == 1 {
@@ -104,134 +108,176 @@ func (g *Game) AddNewTurn(turn int) {
 		g.encodedBoard |= encodedTurn
 		g.encodedTurns = append(g.encodedTurns, g.encodedBoard)
 	}
+
+	return win
 }
 
-func (g *Game) CheckForWin(turn int) bool {
+func (g *Game) WonBy() string {
+	switch g.wonBy {
+	case 1:
+		return "horizontal"
+	case 2:
+		return "vertical"
+	case 3:
+		return "left-top-to-right-bottom diagonal"
+	case 4:
+		return "right-top-to-left-bottom diagonal"
+	}
 
-	lmx := turn
-	lmy := BOARD_HEIGHT - 1 - g.currentHeights[turn]
+	return "unknown"
+}
+
+func (g *Game) CheckForWin(y, x int) bool {
+
+	lmy := y
+	lmx := x
+
+	winCount := 4
 
 	// Check horizontal
 	{
-		left_to_win := 3
 
-		stop_1 := false
-		stop_2 := false
-		for x := 1; x <= 4; x++ {
-			if !stop_1 && lmx-x >= 0 {
-				if g.board[lmx-x][lmy] == g.currentPlayer {
-					left_to_win -= 1
-				} else {
-					stop_1 = true
+		consecutive := 1
+
+		var direction int
+		for i := 0; i < 2; i++ {
+
+			if i == 0 {
+				direction = 1
+			} else {
+				direction = -1
+			}
+
+			for j := 1; j <= winCount; j++ {
+				ny := lmy
+				nx := lmx + (j * direction)
+
+				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
+					break
+				}
+
+				if g.board[ny][nx] != g.currentPlayer {
+					break
+				}
+
+				consecutive++
+				if consecutive >= winCount {
+					g.wonBy = 1
+					return true
 				}
 			}
-			if !stop_2 && lmx+x < BOARD_WIDTH {
-				if g.board[lmx+x][lmy] == g.currentPlayer {
-					left_to_win -= 1
-				} else {
-					stop_2 = true
-				}
-
-			}
-			if left_to_win <= 0 {
-				return true
-			}
-
 		}
-
 	}
 
 	// Check vertical
 	{
-		left_to_win := 3
 
-		stop_1 := false
-		stop_2 := false
+		consecutive := 1
 
-		for x := 1; x <= 4; x++ {
-			if !stop_1 && lmy-x >= 0 {
-				if g.board[lmx][lmy-x] == g.currentPlayer {
-					left_to_win -= 1
-				} else {
-					stop_1 = true
+		var direction int
+		for i := 0; i < 2; i++ {
+
+			if i == 0 {
+				direction = 1
+			} else {
+				direction = -1
+			}
+
+			for j := 1; j <= winCount; j++ {
+				ny := lmy + (j * direction)
+				nx := lmx
+
+				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
+					break
+				}
+
+				if g.board[ny][nx] != g.currentPlayer {
+					break
+				}
+
+				consecutive++
+				if consecutive >= winCount {
+					g.wonBy = 2
+					return true
 				}
 			}
-			if !stop_2 && lmy+x < BOARD_HEIGHT {
-				if g.board[lmx][lmy+x] == g.currentPlayer {
-					left_to_win -= 1
-				} else {
-					stop_2 = true
-				}
-
-			}
-			if left_to_win <= 0 {
-				return true
-			}
-
 		}
-
 	}
 
-	// Check diagonal bottom to top
+	// Check left-top-to-right-bottom diagonal
 	{
-		left_to_win := 3
 
-		stop_1 := false
-		stop_2 := false
+		// x is always getting bigger
+		// y is always getting bigger
 
-		for x := 1; x <= 4; x++ {
-			if !stop_1 && lmy+x < BOARD_HEIGHT && lmx-x >= 0 {
-				if g.board[lmx-x][lmy+x] == g.currentPlayer {
-					left_to_win -= 1
-				} else {
-					stop_1 = true
+		consecutive := 1
+
+		var direction int
+		for i := 0; i < 2; i++ {
+
+			if i == 0 {
+				direction = 1
+			} else {
+				direction = -1
+			}
+
+			for j := 1; j <= winCount; j++ {
+				ny := lmy + (j * direction)
+				nx := lmx + (j * direction)
+
+				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
+					break
+				}
+
+				if g.board[ny][nx] != g.currentPlayer {
+					break
+				}
+
+				consecutive++
+				if consecutive >= winCount {
+					g.wonBy = 3
+					return true
 				}
 			}
-			if !stop_2 && lmy-x >= 0 && lmx+x < BOARD_WIDTH {
-				if g.board[lmx+x][lmy-x] == g.currentPlayer {
-					left_to_win -= 1
-				} else {
-					stop_2 = true
-				}
-
-			}
-			if left_to_win <= 0 {
-				return true
-			}
-
 		}
-
 	}
 
-	// Check diagonal top to bottom
+	// Check right-top-to-left-bottom diagonal
 	{
-		left_to_win := 3
 
-		stop_1 := false
-		stop_2 := false
+		// x is always getting bigger
+		// y is always getting smaller
 
-		for x := 1; x <= 4; x++ {
-			if !stop_1 && lmy-x >= 0 && lmx-x >= 0 {
-				if g.board[lmx-x][lmy-x] == g.currentPlayer {
-					left_to_win -= 1
-				} else {
-					stop_1 = true
+		consecutive := 1
+
+		var direction int
+		for i := 0; i < 2; i++ {
+
+			if i == 0 {
+				direction = 1
+			} else {
+				direction = -1
+			}
+
+			for j := 1; j <= winCount; j++ {
+				ny := lmy + (j * direction)
+				nx := lmx - (j * direction)
+
+				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
+					break
+				}
+
+				if g.board[ny][nx] != g.currentPlayer {
+					break
+				}
+
+				consecutive++
+				if consecutive >= winCount {
+					g.wonBy = 4
+					return true
 				}
 			}
-			if !stop_2 && lmy+x < BOARD_HEIGHT && lmx+x < BOARD_WIDTH {
-				if g.board[lmx+x][lmy+x] == g.currentPlayer {
-					left_to_win -= 1
-				} else {
-					stop_2 = true
-				}
-
-			}
-			if left_to_win <= 0 {
-				return true
-			}
-
 		}
-
 	}
 
 	return false
