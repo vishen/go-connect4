@@ -63,7 +63,7 @@ func (g *Game) DrawBoard() {
 
 func (g *Game) CheckIfValidTurn(turn int) bool {
 
-	if turn < 0 || turn > BOARD_WIDTH {
+	if turn < 0 || turn >= BOARD_WIDTH {
 		return false
 	}
 
@@ -81,19 +81,6 @@ func (g *Game) CompleteTurn(turn int) bool {
 	// Get the current height of the turn played
 	height := BOARD_HEIGHT - 1 - g.currentHeights[turn]
 
-	win := g.CheckForWin(height, turn)
-
-	// Add the turn for the player to the board
-	g.board[height][turn] = g.currentPlayer
-	g.currentHeights[turn] += 1
-
-	// Switch player
-	if g.currentPlayer == 1 {
-		g.currentPlayer = 2
-	} else {
-		g.currentPlayer = 1
-	}
-
 	{
 		// Encode the current turn and save the current board state as an encoded
 		// integer to the list of encodedTurns
@@ -107,7 +94,23 @@ func (g *Game) CompleteTurn(turn int) bool {
 		g.encodedTurns = append(g.encodedTurns, g.encodedBoard)
 	}
 
-	return win
+	// Add the turn for the player to the board
+	g.board[height][turn] = g.currentPlayer
+
+	if g.CheckForWin(height, turn) {
+		return true
+	}
+
+	g.currentHeights[turn] += 1
+
+	// Switch player
+	if g.currentPlayer == 1 {
+		g.currentPlayer = 2
+	} else {
+		g.currentPlayer = 1
+	}
+
+	return false
 }
 
 func (g *Game) WonBy() string {
@@ -126,9 +129,6 @@ func (g *Game) WonBy() string {
 }
 
 func (g *Game) CheckForWin(y, x int) bool {
-
-	lmy := y
-	lmx := x
 
 	winCount := 4
 

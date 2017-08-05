@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 )
 
-func main() {
-	log.Println("Connect 4!")
+func runHumanVSHumanGame() {
 
 	game := Game{currentPlayer: 1}
 
@@ -37,7 +37,49 @@ func main() {
 		if game.CompleteTurn(move) {
 			game.DrawBoard()
 			fmt.Printf("> Yay! '%s' won '%s' \n", game.GetCurrentPlayer(), game.WonBy())
-			break
+			return
 		}
+
+		if len(game.encodedTurns) == BOARD_HEIGHT*BOARD_WIDTH {
+			fmt.Printf("> Well, no one won...\n")
+			return
+		}
+
 	}
+}
+
+func runBotVSBotGame() {
+
+	for i := 0; i < 10; i++ {
+		g := Game{currentPlayer: 1}
+
+		for {
+
+			move := rand.Intn(BOARD_WIDTH)
+
+			if !g.CheckIfValidTurn(move) {
+				continue
+			}
+
+			if g.CompleteTurn(move) {
+				break
+			}
+
+			if len(g.encodedTurns) == BOARD_HEIGHT*BOARD_WIDTH {
+				break
+			}
+
+		}
+
+		fmt.Println("######################################")
+		g.DrawBoard()
+		fmt.Printf("Game won by '%s' by '%s'\n", g.GetCurrentPlayer(), g.WonBy())
+	}
+}
+
+func main() {
+	log.Println("Connect 4!")
+
+	runBotVSBotGame()
+	// runHumanVSHumanGame()
 }
