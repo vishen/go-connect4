@@ -1,4 +1,7 @@
 # go-connect4
-Simple CLI connect 4 with a stupid bot
+Connect 4 that trains a bot that you can then verse!
 
-Look into implementing with https://engo.io/tutorials/00-foreword as I have NFI how to do any opengles shit works. Looks like it is supposed to work for android...?
+## How it works
+You watch two bots verse each other, learning winning strategies by recording every game and choosing moves that are known to have won a previous game
+
+
