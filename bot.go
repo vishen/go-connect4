@@ -83,9 +83,9 @@ func (b *Bot) NextMove(encodedLastMove uint64) int {
 	// This decides if we should choose a random move to spread the choices over all possible choices
 	spreadChoice := rand.Float32() >= 0.9
 
-	var move int
+	move := -1
 	if spreadChoice || len(indexedNextTurns) == 0 {
-		b.log("Bot randomising this turn; spreadChoice=%f lenIndexedTurns=%d\n", spreadChoice, len(indexedNextTurns))
+		b.log("Bot randomising this turn; spreadChoice=%t lenIndexedTurns=%d\n", spreadChoice, len(indexedNextTurns))
 		move = rand.Intn(BOARD_WIDTH)
 	} else {
 		bestMove := uint64(0)
@@ -101,23 +101,26 @@ func (b *Bot) NextMove(encodedLastMove uint64) int {
 				bestMove = nextMove
 				bestMoveWinPercentage = winPercentage
 			}
-			b.log("Bot found for move=%d; nextMove=%d wins=%d losses=%d winPercentage=%f\n", encodedLastMove, nextMove, nt.wins, nt.losses, winPercentage)
+			b.log("Bot found for encodedLastMove=%d; nextMove=%d wins=%d losses=%d winPercentage=%f\n", encodedLastMove, nextMove, nt.wins, nt.losses, winPercentage)
 		}
-		b.log("Bot found for move=%d; best next move; %d(%f%)\n", encodedLastMove, bestMove, bestMoveWinPercentage)
+		b.log("Bot found for encodedLastmove=%d; best next move; %d(%f%%)\n", encodedLastMove, bestMove, bestMoveWinPercentage)
 		if bestMoveWinPercentage == 0 {
 			move = rand.Intn(BOARD_WIDTH)
 		} else {
 			// Need to decode the move to it in the range (0, BOARD_WIDTH]
 
-			move := bestMove - encodedLastMove
+			encodedMove := bestMove - encodedLastMove
+			// b.log("decoding move: move=%d bestMove=%d encodedLastMove=%d\n", encodedMove, bestMove, encodedLastMove)
 			// Loop and shift until value > 0? Seems a bit shit
 			for {
-				if move <= 32 { // TODO(): Make this not hardcoded
+				if encodedMove <= 32 { // TODO(): Make this not hardcoded
 					break
 				}
-				move >>= uint64(BOARD_HEIGHT)
+				encodedMove >>= uint64(BOARD_HEIGHT)
+				// b.log("decoding move: move=%d\n", encodedMove)
 			}
-			move = uint64(math.Log2(float64(move)))
+			move = BOARD_WIDTH - 1 - int(math.Log2(float64(encodedMove)))
+			// b.log("Bot is going with encodedMove=%d -> move=%d\n", bestMove, move)
 			if move < 0 || move >= BOARD_WIDTH {
 				// TODO(): Remove this when we know the encoding / decoding is working
 				fmt.Printf("pMove=%d bMove=%d move=%d; wp=%f countPossibleMoves=%d\n", encodedLastMove, bestMove, move, bestMoveWinPercentage, len(indexedNextTurns))
