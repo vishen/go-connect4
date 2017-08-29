@@ -11,6 +11,8 @@ type NextTurn struct {
 	next   uint64
 	wins   int
 	losses int
+
+	playerBitmap uint64 // Does not belong on here
 }
 
 type Bot struct {
@@ -26,7 +28,7 @@ func NewBot() *Bot {
 func (b *Bot) RecordGame(g *Game) {
 
 	// Index the first turn
-	b.indexTurn(0, g.encodedTurns[0], 0%2 != len(g.encodedTurns)%2)
+	b.indexTurn(0, g.encodedTurns[0], g.playerOneBitmap, 0%2 != len(g.encodedTurns)%2)
 
 	// Index all the other turns
 	for i := 0; i < len(g.encodedTurns)-1; i++ {
@@ -34,14 +36,21 @@ func (b *Bot) RecordGame(g *Game) {
 		turn := g.encodedTurns[i]
 		nextTurn := g.encodedTurns[i+1]
 
+		var playerBitmap uint64
+		if i%2 == 0 {
+			playerBitmap = g.playerTwoBitmap
+		} else {
+			playerBitmap = g.playerOneBitmap
+		}
+
 		// Did this turn end up winning the game
 		won := i%2 != len(g.encodedTurns)%2
 
-		b.indexTurn(turn, nextTurn, won)
+		b.indexTurn(turn, nextTurn, playerBitmap, won)
 	}
 }
 
-func (b *Bot) indexTurn(turn, nextTurn uint64, won bool) {
+func (b *Bot) indexTurn(turn, nextTurn, playerBitmap uint64, won bool) {
 
 	wins := 0
 	losses := 0
@@ -54,7 +63,7 @@ func (b *Bot) indexTurn(turn, nextTurn uint64, won bool) {
 
 	found := false
 	for _, indexedNextTurn := range b.indexedTurns[turn] {
-		if indexedNextTurn.next == nextTurn {
+		if indexedNextTurn.playerBitmap == playerBitmap || indexedNextTurn.next == nextTurn {
 
 			indexedNextTurn.wins += wins
 			indexedNextTurn.losses += losses
@@ -65,7 +74,12 @@ func (b *Bot) indexTurn(turn, nextTurn uint64, won bool) {
 	}
 
 	if !found {
-		b.indexedTurns[turn] = append(b.indexedTurns[turn], &NextTurn{next: nextTurn, wins: wins, losses: losses})
+		b.indexedTurns[turn] = append(b.indexedTurns[turn], &NextTurn{
+			next:         nextTurn,
+			wins:         wins,
+			losses:       losses,
+			playerBitmap: playerBitmap,
+		})
 	}
 
 }
@@ -76,7 +90,7 @@ func (b *Bot) log(message string, a ...interface{}) {
 	}
 }
 
-func (b *Bot) NextMove(encodedLastMove uint64) int {
+func (b *Bot) NextMove(encodedLastMove, playerBitmap uint64) int {
 
 	indexedNextTurns := b.indexedTurns[encodedLastMove]
 
@@ -94,6 +108,11 @@ func (b *Bot) NextMove(encodedLastMove uint64) int {
 		// TODO(): Rather than choosing the best move, we should weight each move then randomly
 		// select a weight
 		for _, nt := range indexedNextTurns {
+
+			if nt.playerBitmap != playerBitmap {
+				continue
+			}
+
 			nextMove := nt.next
 			winPercentage := float64(nt.wins) / float64(nt.wins+nt.losses)
 

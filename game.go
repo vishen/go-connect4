@@ -20,8 +20,10 @@ type Game struct {
 	wonBy          int // Indicates how the game was won
 
 	// Store the turns in encoded format
-	encodedBoard uint64
-	encodedTurns []uint64
+	playerOneBitmap uint64
+	playerTwoBitmap uint64
+	encodedBoard    uint64
+	encodedTurns    []uint64
 
 	debug bool
 }
@@ -30,12 +32,22 @@ func (g *Game) GetCurrentPlayer() string {
 	return string(g.getPlayerPretty(g.currentPlayer))
 }
 
+func (g *Game) GetCurrentPlayerBitmap() uint64 {
+	if g.currentPlayer == 1 {
+		return g.playerOneBitmap
+	} else {
+		return g.playerTwoBitmap
+	}
+}
+
 func (g *Game) getPlayerPretty(player int) rune {
 	if player == 1 {
 		return 'X'
-	} else {
+	} else if player == 2 {
 		return 'O'
 	}
+
+	panic("Got an invalid 'player'")
 }
 
 func (g *Game) DrawBoard() {
@@ -94,6 +106,12 @@ func (g *Game) CompleteTurn(turn int) bool {
 
 		g.encodedBoard |= encodedTurn
 		g.encodedTurns = append(g.encodedTurns, g.encodedBoard)
+
+		if turn == 0 {
+			g.playerOneBitmap |= encodedTurn
+		} else {
+			g.playerTwoBitmap |= encodedTurn
+		}
 
 	}
 
@@ -155,8 +173,8 @@ func (g *Game) CheckForWin(y, x int) bool {
 	for winCode, f := range winningWays {
 
 		consecutive := 1
-
 		var direction int
+
 		for i := 0; i < 2; i++ {
 
 			if i == 0 {
@@ -168,7 +186,6 @@ func (g *Game) CheckForWin(y, x int) bool {
 			for j := 1; j <= winCount; j++ {
 
 				nx, ny := f(x, y, direction, j)
-
 				if nx < 0 || nx >= BOARD_WIDTH || ny < 0 || ny >= BOARD_HEIGHT {
 					break
 				}

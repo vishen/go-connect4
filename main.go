@@ -64,9 +64,10 @@ func runHumanVSBotGame(bot *Bot) {
 		var move int
 
 		if game.currentPlayer != humanPlayer {
+			// TODO(): Don't hardcode, but currently bot can only be player two
 
 			for {
-				move = bot.NextMove(encodedLastMove)
+				move = bot.NextMove(encodedLastMove, game.GetCurrentPlayerBitmap())
 
 				if !game.CheckIfValidTurn(move) {
 					fmt.Printf("Invalid move=%d by bot...?\n", move)
@@ -132,7 +133,7 @@ func trainBot(games int, bot *Bot) {
 
 		for {
 
-			move := bot.NextMove(encodedLastMove)
+			move := bot.NextMove(encodedLastMove, g.GetCurrentPlayerBitmap())
 
 			// TODO(): Move this into a game loop or something
 			if !g.CheckIfValidTurn(move) {
